@@ -19,10 +19,7 @@ services:
       - "traefik.http.routers.mj-backend.rule=Host(`${DOMAIN}`)"
       - "traefik.http.routers.mj-backend.entrypoints=websecure"
       - "traefik.http.routers.mj-backend.tls.certresolver=myresolver"
-      # Bun serves on port 7000 (see src/index.ts)
       - "traefik.http.services.mj-backend.loadbalancer.server.port=7000"
-      # No websocket-specific labels needed — Traefik forwards the
-      # Upgrade/Connection headers over the same HTTP router automatically.
     networks:
       - elysia-network
 
