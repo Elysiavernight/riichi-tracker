@@ -1,0 +1,31 @@
+version: '3.8'
+services:
+  mj-backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: mj-backend:latest
+    container_name: mj-backend
+    restart: always
+    volumes:
+      # Persist the sqlite db + migrations folder on the host so
+      # `docker compose up` doesn't wipe data on rebuild.
+      - ./mj.db:/app/mj.db
+      - ./drizzle:/app/drizzle
+    environment:
+      - NODE_ENV=production
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.mj-backend.rule=Host(`${DOMAIN}`)"
+      - "traefik.http.routers.mj-backend.entrypoints=websecure"
+      - "traefik.http.routers.mj-backend.tls.certresolver=myresolver"
+      # Bun serves on port 7000 (see src/index.ts)
+      - "traefik.http.services.mj-backend.loadbalancer.server.port=7000"
+      # No websocket-specific labels needed — Traefik forwards the
+      # Upgrade/Connection headers over the same HTTP router automatically.
+    networks:
+      - elysia-network
+
+networks:
+  elysia-network:
+    external: true

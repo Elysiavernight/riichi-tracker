@@ -89,19 +89,27 @@ export function calculateTsumoSplits(
   const payments: Record<number, number> = {};
 
   if (isDealer) {
-    const shares = splitRounded(total, payers.length);
-    payers.forEach((seat, i) => (payments[seat] = shares[i]));
+    const rawShare = total / payers.length;
+    const roundedShare = Math.ceil(rawShare / 100) * 100;
+
+    payers.forEach((seat) => {
+      payments[seat] = roundedShare;
+    });
   } else {
     const nonDealerPayers = payers.filter((s) => s !== dealerSeat);
     const unit = total / (nonDealerPayers.length + 2);
-    payments[dealerSeat] = unit * 2;
-    nonDealerPayers.forEach((seat) => (payments[seat] = unit));
+
+    payments[dealerSeat] = Math.ceil((unit * 2) / 100) * 100;
+
+    const roundedNonDealerShare = Math.ceil(unit / 100) * 100;
+    nonDealerPayers.forEach((seat) => {
+      payments[seat] = roundedNonDealerShare;
+    });
   }
 
   const winnerGain = Object.values(payments).reduce((a, b) => a + b, 0);
   return { winnerGain, payments };
 }
-
 const NOTEN_TOTAL = 3_000;
 
 export function calculateNotenPayments(
