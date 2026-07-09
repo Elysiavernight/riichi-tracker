@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { router } from "expo-router";
+import { router, Redirect } from "expo-router";
 import {
   ActivityIndicator,
   Pressable,
@@ -26,6 +26,7 @@ export default function LobbyHome() {
   const [isJoining, setIsJoining] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isCheckingRoom, setIsCheckingRoom] = useState(true)
+  const [reconnectRoomId, setReconnectRoomId] = useState<number | null>(null);
   
   useEffect(()=>{
     async function checkActiveGame(){
@@ -34,11 +35,12 @@ export default function LobbyHome() {
         return
       }
       try{
-      const data = await getCurrentRoom(player.id)
       console.log(`Server : `, data)
-      if(data.roomid){
-        console.log(`reconnecting to room ${data.roomid}`)
-        router.replace(`/lobby/${data.roomid}`)
+      if(data.roomId){
+        console.log(`reconnecting to room ${data.roomId}`)
+        setReconnectRoomId(data.roomId)
+        setIsCheckingRoom(false)
+
         return
       }
     } catch(err){
@@ -48,10 +50,14 @@ export default function LobbyHome() {
     }
     checkActiveGame()
   }, [player])
-  if(!player){
-    router.replace('/auth/login')
-    return null
+  if (!player) {
+    return <Redirect href="/auth/login" />; 
   }
+  if (reconnectRoomId) {
+    console.log(reconnectRoomId)
+    return <Redirect href={`/lobby/${reconnectRoomId}`} />;
+  }
+  
   if(isCheckingRoom){
     return(
       <View style={styles.centered}>

@@ -98,6 +98,6 @@ export async function getCurrentRoom(playerId: number){
     throw new ApiError("Failed to check current room", 404)
     
   }
-  return res.json() as Promise<{roomid : number | null; status : string}>
+  return res.json() as Promise<{roomId : number | null; status : string}>
   
 }
