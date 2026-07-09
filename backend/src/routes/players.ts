@@ -84,16 +84,28 @@ export async function playerRoutes(app: FastifyInstance) {
       if (!roomPlayer) {
         return reply.send({ roomId: null });
       }
-      const room = await db
+      const userRooms = await db
         .select()
-        .from(rooms)
-        .where(eq(rooms.id, roomPlayer.roomId))
-        .get();
-      if (
-        room &&
-        (room.status === "waiting" || room.status === "in_progress")
-      ) {
-        return reply.send({ roomId: room.id, status: room.status });
+        .from(roomPlayers)
+        .where(eq(roomPlayers.playerId, playerId))
+        .all();
+
+      if (userRooms.length === 0) {
+        return reply.send({ roomId: null });
+      }
+      for (const userRoom of userRooms) {
+        const room = await db
+          .select()
+          .from(rooms)
+          .where(eq(rooms.id, userRoom.roomId))
+          .get();
+
+        if (
+          room &&
+          (room.status === "waiting" || room.status === "in_progress")
+        ) {
+          return reply.send({ roomId: room.id, status: room.status });
+        }
       }
 
       return reply.send({ roomId: null });
