@@ -17,7 +17,7 @@ import {
   type RoomMember,
 } from "../../src/api/client";
 import { colors, radii, spacing } from "../../src/theme/colors";
-
+import { GameDashboard } from "@/components/game/game-dashboard";
 const POLL_INTERVAL_MS = 2500;
 
 export default function RoomScreen() {
@@ -107,12 +107,10 @@ export default function RoomScreen() {
       <Text style={styles.title}>{room.mode}</Text>
 
       {gameIsLive ? (
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Game started</Text>
-          <Text style={styles.subtitle}>
-            The live scoring screen isn't built yet — this is where it'll go.
-          </Text>
-        </View>
+        <GameDashboard 
+          mySeat={self?.joinOrder !== undefined ? self.joinOrder + 1 : 1} 
+          myName={player.name} 
+        />
       ) : (
         <>
           <View style={styles.card}>
