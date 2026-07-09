@@ -35,7 +35,7 @@ export default function LobbyHome() {
       }
       try{
       const data = await getCurrentRoom(player.id)
-
+      console.log(`Server : `, data)
       if(data.roomid){
         console.log(`reconnecting to room ${data.roomid}`)
         router.replace(`/lobby/${data.roomid}`)
