@@ -90,3 +90,14 @@ export function getRoom(roomId: number) {
 export function startRoom(roomId: number, playerId: number) {
   return post<{ gameId: number }>(`/rooms/${roomId}/start`, { playerId });
 }
+export async function getCurrentRoom(playerId: number){
+  const res = await fetch(`${API_URL}/players/${playerId}/current-room`)
+  if(!res.ok){
+    const errorBody = await res.text()
+    console.error(`Server Error (${res.status})`, errorBody)
+    throw new ApiError("Failed to check current room", 404)
+    
+  }
+  return res.json() as Promise<{roomid : number | null; status : string}>
+  
+}

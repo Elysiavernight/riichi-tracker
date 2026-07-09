@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { router } from "expo-router";
 import {
   ActivityIndicator,
@@ -13,6 +13,7 @@ import {
   createRoom,
   joinRoom,
   ApiError,
+  getCurrentRoom,
   type RoomMode,
 } from "../../src/api/client";
 import { colors, radii, spacing } from "../../src/theme/colors";
@@ -24,10 +25,42 @@ export default function LobbyHome() {
   const [isCreating, setIsCreating] = useState(false);
   const [isJoining, setIsJoining] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isCheckingRoom, setIsCheckingRoom] = useState(true)
+  
+  useEffect(()=>{
+    async function checkActiveGame(){
+      if(!player){
+        setIsCheckingRoom(false)
+        return
+      }
+      try{
+      const data = await getCurrentRoom(player.id)
 
-  if (!player) {
-    router.replace("/auth/login");
-    return null;
+      if(data.roomid){
+        console.log(`reconnecting to room ${data.roomid}`)
+        router.replace(`/lobby/${data.roomid}`)
+        return
+      }
+    } catch(err){
+      console.error("Failed to check active room", err)
+    }
+    setIsCheckingRoom(false)
+    }
+    checkActiveGame()
+  }, [player])
+  if(!player){
+    router.replace('/auth/login')
+    return null
+  }
+  if(isCheckingRoom){
+    return(
+      <View style={styles.centered}>
+        <ActivityIndicator size="large" color={colors.pinkPrimary} />
+        <Text style={{ color: colors.textSecondary, marginTop: spacing.md }}>
+          Checking for active tables...
+        </Text>
+      </View>
+    )
   }
 
   const currentPlayer = player;
@@ -146,6 +179,12 @@ export default function LobbyHome() {
 }
 
 const styles = StyleSheet.create({
+  centered:{
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: colors.background,
+  },
   container: {
     flex: 1,
     padding: spacing.lg,
