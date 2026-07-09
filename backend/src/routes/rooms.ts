@@ -3,7 +3,7 @@ import type { ZodTypeProvider } from "fastify-type-provider-zod";
 import { z } from "zod";
 import { eq, and } from "drizzle-orm";
 import { db } from "../database/client";
-import { rooms, roomPlayers, games, gameState } from "../database/schema";
+import { rooms, roomPlayers, games, gameState, players } from "../database/schema";
 import { errorSchema, roomIdParamsSchema } from "../database/schemas/common";
 import { broadcast } from "../ws/connections";
 import { STARTING_SCORE } from "../constants";
@@ -127,6 +127,8 @@ export async function roomRoutes(app: FastifyInstance) {
         tags: ["rooms"],
         summary: "Get a room and its current members",
         params: roomIdParamsSchema,
+        // Loosely typed response: room/members shapes come straight from
+        // drizzle's inferred row types rather than a hand-written zod schema.
         response: {
           200: z.object({ room: z.any(), members: z.array(z.any()) }),
         },
@@ -140,9 +142,16 @@ export async function roomRoutes(app: FastifyInstance) {
         .where(eq(rooms.id, roomId))
         .get();
       const members = await db
-        .select()
+        .select({
+          playerId: roomPlayers.playerId,
+          joinOrder: roomPlayers.joinOrder,
+          isReady: roomPlayers.isReady,
+          name: players.name,
+        })
         .from(roomPlayers)
+        .innerJoin(players, eq(players.id, roomPlayers.playerId))
         .where(eq(roomPlayers.roomId, roomId))
+        .orderBy(roomPlayers.joinOrder)
         .all();
       return reply.send({ room, members });
     },
@@ -153,7 +162,7 @@ export async function roomRoutes(app: FastifyInstance) {
     {
       schema: {
         tags: ["rooms"],
-        summary: "Start a full, all-ready room (Dealer only)",
+        summary: "Start a full, all-ready room (first joiner only)",
         params: roomIdParamsSchema,
         body: startBodySchema,
         response: {
@@ -188,7 +197,7 @@ export async function roomRoutes(app: FastifyInstance) {
       if (members[0].playerId !== body.playerId) {
         return reply
           .code(403)
-          .send({ error: "Only the Dealer can start the game" });
+          .send({ error: "Only the first joiner can start the game" });
       }
       if (!members.every((m) => m.isReady)) {
         return reply.code(400).send({ error: "Not all players are ready" });
