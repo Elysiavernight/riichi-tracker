@@ -16,7 +16,4 @@ COPY . .
 ENV NODE_ENV=production
 EXPOSE 7000
 
-# Run migrations then start the server. Adjust the migrate command
-# if your package.json script name differs (check `bunx drizzle-kit --help`
-# or your existing `bun run migrate` script, if you have one).
-CMD ["sh", "-c", "bunx drizzle-kit migrate && bun run src/index.ts"]
+CMD ["bun", "run", "src/index.ts"]
