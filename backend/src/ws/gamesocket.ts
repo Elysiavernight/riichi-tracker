@@ -1,5 +1,5 @@
 import type { FastifyInstance } from "fastify";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { db } from "../database/client";
 import { gameState, games, handResults , rooms} from "../database/schema";
 import type { Mode } from "../logic/scoring";
@@ -7,18 +7,18 @@ import { addConnection, removeConnection, broadcast } from "./connections";
 import { wsActionSchema } from "./schemas";
 import { applyGameAction, type ActionContext } from "./gameactions";
 
-async function getActiveGame() {
+async function getActiveGame(roomId: number) {
   const game = await db
     .select()
     .from(games)
-    .where(eq(games.status, "in_progress"))
+    .where(and(eq(games.status, "in_progress"), eq(games.roomId, roomId)))
     .get();
   return game ?? null;
 }
 
 export async function gameSocketRoutes(app: FastifyInstance) {
   app.get("/ws", { websocket: true }, (socket, _req) => {
-    // 1. Extract and validate the room ID context from the URL parameter immediately[cite: 3]
+  
     const url = new URL(_req.url ?? "", `http://${_req.headers.host || "localhost"}`);
     const roomId = Number(url.searchParams.get("roomId"));
 
@@ -36,7 +36,7 @@ export async function gameSocketRoutes(app: FastifyInstance) {
 
     socket.on("message", async (raw: string) => {
       try {
-        await handleIncomingAction(app, raw);
+        await handleIncomingAction(app, raw, roomId);
       } catch (err) {
         app.log.error(err);
       }
@@ -56,7 +56,7 @@ async function syncStateToSocket(socket: any, roomId: number) {
     return;
   }
 
-  const game = await getActiveGame();
+  const game = await getActiveGame(roomId);
   if (!game) return;
 
   const state = await db
@@ -90,8 +90,8 @@ async function syncStateToSocket(socket: any, roomId: number) {
   }
 }
 
-async function handleIncomingAction(app: FastifyInstance, raw: string) {
-  const game = await getActiveGame();
+async function handleIncomingAction(app: FastifyInstance, raw: string, roomId: number) {
+  const game = await getActiveGame(roomId);
   if (!game) return;
 
   const parsed = wsActionSchema.safeParse(JSON.parse(raw));
