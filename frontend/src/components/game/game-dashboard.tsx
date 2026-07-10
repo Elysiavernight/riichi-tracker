@@ -219,7 +219,7 @@ export function GameDashboard({
         </View>
       </View>
 
-      {/* PENDING RON CLAIMS AGAINST ME — only I can confirm these, so only I can move my own points */}
+      
       {claimsAgainstMe.length > 0 && (
         <View style={styles.claimBanner}>
           <Text style={styles.claimBannerTitle}>Ron called on you</Text>
@@ -239,7 +239,7 @@ export function GameDashboard({
         </View>
       )}
 
-      {/* MY OWN OUTSTANDING RON CLAIM */}
+     
       {myClaimEntry && (
         <View style={styles.claimBanner}>
           <Text style={styles.claimBannerTitle}>Waiting for confirmation</Text>

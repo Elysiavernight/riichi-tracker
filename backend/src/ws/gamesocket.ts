@@ -164,6 +164,7 @@ async function handleIncomingAction(
       .run();
 
     if (gameEnded) {
+      
       tx.update(games)
         .set({
           status: "finished",
@@ -171,6 +172,14 @@ async function handleIncomingAction(
           endedAt: new Date().toISOString(),
         })
         .where(eq(games.id, game.id))
+        .run();
+
+     
+      tx.update(rooms)
+        .set({
+          status: "finished",
+        })
+        .where(eq(rooms.id, roomId))
         .run();
     }
   });
