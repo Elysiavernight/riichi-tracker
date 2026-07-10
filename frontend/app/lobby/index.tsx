@@ -36,18 +36,11 @@ export default function LobbyHome() {
       }
       try{
       const data = await getCurrentRoom(player.id)
-<<<<<<< Updated upstream
-
-      if(data.roomid){
-        console.log(`reconnecting to room ${data.roomid}`)
-        router.replace(`/lobby/${data.roomid}`)
-=======
       console.log(`Server : `, data)
       if(data.roomId){
         console.log(`reconnecting to room ${data.roomId}`)
         setReconnectRoomId(data.roomId)
         setIsCheckingRoom(false)
->>>>>>> Stashed changes
         return
       }
     } catch(err){

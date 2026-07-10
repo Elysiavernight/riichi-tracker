@@ -80,6 +80,10 @@ async function handleIncomingAction(app: FastifyInstance, raw: string) {
       honba: state.honba,
       dealerSeat: state.dealerSeat,
     },
+    pendingRonClaims: state.pendingRonClaims as Record<
+      number,
+      { winnerSeat: number; han: number }[]
+    >,
   };
 
   const result = applyGameAction(ctx, parsed.data);
@@ -105,6 +109,7 @@ async function handleIncomingAction(app: FastifyInstance, raw: string) {
         dealerSeat: result.round.dealerSeat,
         roundWind: result.round.roundWind,
         roundNumber: result.round.roundNumber,
+        pendingRonClaims: result.pendingRonClaims,
         updatedAt: new Date().toISOString(),
       })
       .where(eq(gameState.gameId, game.id))
@@ -132,6 +137,7 @@ async function handleIncomingAction(app: FastifyInstance, raw: string) {
       dealerSeat: result.round.dealerSeat,
       roundWind: result.round.roundWind,
       roundNumber: result.round.roundNumber,
+      pendingRonClaims: result.pendingRonClaims,
     },
     endReason: gameEnded ? endReason : undefined,
   });
