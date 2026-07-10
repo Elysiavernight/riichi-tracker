@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { useLocalSearchParams } from "expo-router";
+import { useLocalSearchParams, router } from "expo-router";
 import {
   ActivityIndicator,
   Pressable,
@@ -65,6 +65,22 @@ export default function RoomScreen() {
     return (
       <View style={styles.centered}>
         <Text style={styles.error}>{error ?? "Room not found."}</Text>
+      </View>
+    );
+  }
+  if (room.status === "finished") {
+    return (
+      <View style={styles.centered}>
+        <Text style={styles.title}>Match Concluded</Text>
+        <Text style={[styles.subtitle, { textAlign: "center", marginBottom: spacing.md }]}>
+          This room has already finished its session.
+        </Text>
+        <Pressable 
+          style={styles.button} 
+          onPress={() => router.replace("/lobby")}
+        >
+          <Text style={styles.buttonText}>Return to Lobby</Text>
+        </Pressable>
       </View>
     );
   }
