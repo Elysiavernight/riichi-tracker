@@ -144,10 +144,8 @@ export async function roomRoutes(app: FastifyInstance) {
     {
       schema: {
         tags: ["rooms"],
-        summary: "Get a room and its current members",
+        summary: "Get a room and its current members + final score standings",
         params: roomIdParamsSchema,
-        // Loosely typed response: room/members shapes come straight from
-        // drizzle's inferred row types rather than a hand-written zod schema.
         response: {
           200: z.object({ room: z.any(), members: z.array(z.any()) }),
         },
@@ -160,6 +158,7 @@ export async function roomRoutes(app: FastifyInstance) {
         .from(rooms)
         .where(eq(rooms.id, roomId))
         .get();
+
       const members = await db
         .select({
           playerId: roomPlayers.playerId,
@@ -172,7 +171,41 @@ export async function roomRoutes(app: FastifyInstance) {
         .where(eq(roomPlayers.roomId, roomId))
         .orderBy(roomPlayers.joinOrder)
         .all();
-      return reply.send({ room, members });
+
+      const lastGame = await db
+        .select()
+        .from(games)
+        .where(eq(games.roomId, roomId))
+        .orderBy(games.id)
+        .get();
+
+      let currentScores: any = null;
+      if (lastGame) {
+        const state = await db
+          .select()
+          .from(gameState)
+          .where(eq(gameState.gameId, lastGame.id))
+          .get();
+        if (state) {
+          if (typeof state.currentScores === "string") {
+            try {
+              currentScores = JSON.parse(state.currentScores);
+            } catch {
+              currentScores = state.currentScores;
+            }
+          } else {
+            currentScores = state.currentScores;
+          }
+        }
+      }
+
+      return reply.send({
+        room: {
+          ...room,
+          currentScores,
+        },
+        members,
+      });
     },
   );
 

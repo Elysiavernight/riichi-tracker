@@ -31,7 +31,7 @@ export default function RoomScreen() {
   const [isTogglingReady, setIsTogglingReady] = useState(false);
   const [isStarting, setIsStarting] = useState(false);
   const [startedGameId, setStartedGameId] = useState<number | null>(null);
-  
+
   const refresh = useCallback(async () => {
     try {
       const data = await getRoom(roomId);
@@ -39,7 +39,9 @@ export default function RoomScreen() {
       setMembers(data.members);
       setError(null);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Couldn't reach the server.");
+      setError(
+        err instanceof ApiError ? err.message : "Couldn't reach the server.",
+      );
     } finally {
       setIsLoading(false);
     }
@@ -69,14 +71,97 @@ export default function RoomScreen() {
     );
   }
   if (room.status === "finished") {
+    const rankedPlayers = members
+      .map((m) => {
+        const seatNumber = (m.joinOrder ?? 0) + 1;
+        const scoresMap = (room as any).currentScores ?? {};
+        const score =
+          scoresMap[seatNumber] ?? scoresMap[String(seatNumber)] ?? 25000;
+
+        return {
+          name: m.name,
+          score: Number(score),
+          isSelf: m.playerId === player.id,
+        };
+      })
+      .sort((a, b) => b.score - a.score);
+
+    const medals = ["🥇", "🥈", "🥉", "🏅"];
+
     return (
       <View style={styles.centered}>
         <Text style={styles.title}>Match Concluded</Text>
-        <Text style={[styles.subtitle, { textAlign: "center", marginBottom: spacing.md }]}>
-          This room has already finished its session.
+        <Text style={[styles.subtitle, { marginBottom: spacing.md }]}>
+          Final Standings
         </Text>
-        <Pressable 
-          style={styles.button} 
+
+        <View
+          style={[styles.card, { width: "100%", marginBottom: spacing.lg }]}
+        >
+          {rankedPlayers.map((playerRank, index) => (
+            <View
+              key={playerRank.name}
+              style={[
+                styles.memberRow,
+                playerRank.isSelf && {
+                  borderColor: colors.borderStrong,
+                  borderWidth: 1,
+                  borderRadius: radii.md, 
+                  paddingHorizontal: spacing.sm,
+                },
+              ]}
+            >
+              <View
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: spacing.sm,
+                }}
+              >
+                <Text style={{ fontSize: 18 }}>{medals[index] ?? "•"}</Text>
+                <Text
+                  style={{
+                    fontSize: 13,
+                    fontWeight: "800",
+                    color: colors.textSecondary,
+                  }}
+                >
+                  {index + 1}
+                  {index === 0
+                    ? "st"
+                    : index === 1
+                      ? "nd"
+                      : index === 2
+                        ? "rd"
+                        : "th"}
+                </Text>
+                <Text
+                  style={[
+                    styles.memberName,
+                    playerRank.isSelf && {
+                      color: colors.pinkPrimary,
+                      fontWeight: "900",
+                    },
+                  ]}
+                >
+                  {playerRank.name} {playerRank.isSelf ? "(You)" : ""}
+                </Text>
+              </View>
+              <Text
+                style={{
+                  fontSize: 16,
+                  fontWeight: "900",
+                  color: colors.textPrimary,
+                }}
+              >
+                {playerRank.score.toLocaleString()}
+              </Text>
+            </View>
+          ))}
+        </View>
+
+        <Pressable
+          style={[styles.button, { width: "100%" }]}
           onPress={() => router.replace("/lobby")}
         >
           <Text style={styles.buttonText}>Return to Lobby</Text>
@@ -93,7 +178,6 @@ export default function RoomScreen() {
   const playerNamesMap: Record<number, string> = {};
   members.forEach((m) => {
     if (m.joinOrder !== undefined) {
-      
       playerNamesMap[m.playerId] = m.name;
     }
   });
@@ -104,7 +188,9 @@ export default function RoomScreen() {
       await setReady(roomId, player!.id, !self.isReady);
       await refresh();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Couldn't reach the server.");
+      setError(
+        err instanceof ApiError ? err.message : "Couldn't reach the server.",
+      );
     } finally {
       setIsTogglingReady(false);
     }
@@ -116,7 +202,9 @@ export default function RoomScreen() {
       const result = await startRoom(roomId, player!.id);
       setStartedGameId(result.gameId);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Couldn't reach the server.");
+      setError(
+        err instanceof ApiError ? err.message : "Couldn't reach the server.",
+      );
     } finally {
       setIsStarting(false);
     }
@@ -128,18 +216,16 @@ export default function RoomScreen() {
       <Text style={styles.title}>{room.mode}</Text>
 
       {gameIsLive ? (
-        <GameDashboard 
+        <GameDashboard
           roomId={roomId}
-          mySeat={self?.joinOrder !== undefined ? self.joinOrder + 1 : 1} 
-          myName={player.name} 
+          mySeat={self?.joinOrder !== undefined ? self.joinOrder + 1 : 1}
+          myName={player.name}
           playerNamesMap={playerNamesMap}
         />
       ) : (
         <>
           <View style={styles.card}>
-            <Text style={styles.cardTitle}>
-              Players ({members.length}/4)
-            </Text>
+            <Text style={styles.cardTitle}>Players ({members.length}/4)</Text>
             {members.map((m) => (
               <View key={m.playerId} style={styles.memberRow}>
                 <Text style={styles.memberName}>
@@ -147,7 +233,12 @@ export default function RoomScreen() {
                   {m.playerId === player.id ? " (you)" : ""}
                   {m.joinOrder === 0 ? " · host" : ""}
                 </Text>
-                <View style={[styles.readyPill, m.isReady && styles.readyPillActive]}>
+                <View
+                  style={[
+                    styles.readyPill,
+                    m.isReady && styles.readyPillActive,
+                  ]}
+                >
                   <Text
                     style={[
                       styles.readyPillText,
