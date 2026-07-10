@@ -18,11 +18,22 @@ async function getActiveGame() {
 
 export async function gameSocketRoutes(app: FastifyInstance) {
   app.get("/ws", { websocket: true }, (socket, _req) => {
-    addConnection(socket);
-    app.log.info("Player connected.");
-    const url = new URL(_req.url ?? "", `http://${_req.headers.host}`);
+    // 1. Extract and validate the room ID context from the URL parameter immediately[cite: 3]
+    const url = new URL(_req.url ?? "", `http://${_req.headers.host || "localhost"}`);
     const roomId = Number(url.searchParams.get("roomId"));
+
+    if (!roomId || Number.isNaN(roomId)) {
+      app.log.warn("Rejected WebSocket connection: Missing or invalid roomId query parameter.");
+      socket.close(1008, "Missing roomId parameter.");
+      return;
+    }
+
+
+    addConnection(socket);
+    app.log.info(`Player connected to room context: ${roomId}`);
+
     void syncStateToSocket(socket, roomId);
+
     socket.on("message", async (raw: string) => {
       try {
         await handleIncomingAction(app, raw);
@@ -53,7 +64,30 @@ async function syncStateToSocket(socket: any, roomId: number) {
     .from(gameState)
     .where(eq(gameState.gameId, game.id))
     .get();
-  if (state) socket.send(JSON.stringify({ type: "SYNC_STATE", state }));
+
+  if (state) {
+    
+    let claimsObj = {};
+    try {
+      if (typeof state.pendingRonClaims === "string") {
+        claimsObj = JSON.parse(state.pendingRonClaims);
+      } else if (state.pendingRonClaims) {
+        claimsObj = state.pendingRonClaims;
+      }
+    } catch (e) {
+      claimsObj = {};
+    }
+
+    socket.send(
+      JSON.stringify({
+        type: "SYNC_STATE",
+        state: {
+          ...state,
+          pendingRonClaims: claimsObj,
+        },
+      })
+    );
+  }
 }
 
 async function handleIncomingAction(app: FastifyInstance, raw: string) {

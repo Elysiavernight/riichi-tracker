@@ -1,7 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { ApiError } from '../api/client';
 
-
 const WS_URL = process.env.EXPO_PUBLIC_API_URL!; 
 
 export interface GameState {
@@ -13,17 +12,21 @@ export interface GameState {
   roundWind: string;
   roundNumber: number;
   seatPlayers : Record<number,number>;
+  pendingRonClaims?: Record<number, any[]>;
 }
 
-export function useGameSocket() { // 👈 No parameters needed!
+
+export function useGameSocket(roomId: number | null) { 
   const [gameState, setGameState] = useState<GameState | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [socket, setSocket] = useState<WebSocket | null>(null);
 
   useEffect(() => {
+    
+    if (!roomId || Number.isNaN(roomId)) return;
+
     const cleanUrl = WS_URL.replace(/\/$/, ''); 
     
-    // 2. Smartly swap to the correct WebSocket protocol!
     let baseWsUrl = cleanUrl;
     if (cleanUrl.startsWith("https")) {
       baseWsUrl = cleanUrl.replace(/^https/, "wss");
@@ -31,8 +34,8 @@ export function useGameSocket() { // 👈 No parameters needed!
       baseWsUrl = cleanUrl.replace(/^http/, "ws");
     }
     
-    // 3. Connect to Fastify!
-    const url = `${baseWsUrl}/ws`; 
+  
+    const url = `${baseWsUrl}/ws?roomId=${roomId}`; 
     
     const ws = new WebSocket(url);
 
@@ -44,7 +47,7 @@ export function useGameSocket() { // 👈 No parameters needed!
     ws.onmessage = (event) => {
       try {
         const payload = JSON.parse(event.data);
-        console.log("Server says:", payload); // Let's peek at what it sends!
+        console.log("Server says:", payload); 
         
         if (payload.type === 'SYNC_STATE' || payload.type === 'STATE_UPDATE') {
           setGameState(payload.state);
@@ -65,8 +68,7 @@ export function useGameSocket() { // 👈 No parameters needed!
     return () => {
       ws.close();
     };
-  }, []);
-
+  }, [roomId]); 
 
   const sendAction = useCallback((actionPayload: object) => {
     if (socket && socket.readyState === WebSocket.OPEN) {

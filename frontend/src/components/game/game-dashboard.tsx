@@ -11,22 +11,23 @@ import { colors, radii, spacing } from "../../theme/colors";
 import { useGameSocket } from "../../hooks/use-game-socket";
 
 interface GameDashboardProps {
+  roomId : number| string;
   mySeat: number;
   myName: string;
   playerNamesMap: Record<number, string>;
 }
 
 export function GameDashboard({
+  roomId,
   mySeat,
   myName,
   playerNamesMap,
 }: GameDashboardProps) {
-  const { gameState, isConnected, sendAction } = useGameSocket();
+  const { gameState, isConnected, sendAction } = useGameSocket(Number(roomId));
 
-  // All hooks must run on every render, in the same order — so they live
-  // above the early "no gameState yet" return below (Rules of Hooks).
+
   const [activeModal, setActiveModal] = React.useState<"ron" | "tsumo" | "draw" | null>(null);
-  // Form selections
+ 
   const [selectedLoser, setSelectedLoser] = React.useState<number | null>(null);
   const [selectedHan, setSelectedHan] = React.useState<number>(1);
   const [tenpaiSeats, setTenpaiSeats] = React.useState<Record<number, boolean>>({ 1: false, 2: false, 3: false, 4: false });
@@ -54,13 +55,11 @@ export function GameDashboard({
     seatPlayers,
   } = gameState;
 
-  // Ron claims awaiting the dealt-in player's confirmation, keyed by loser seat.
-  // Only the loser's own CONFIRM_RON action ever moves points — a winner
-  // claiming can never move points unilaterally.
+
   const pendingRonClaims: Record<number, { winnerSeat: number; han: number }[]> =
     (gameState as any).pendingRonClaims ?? {};
   const claimsAgainstMe = pendingRonClaims[mySeat] ?? [];
-  // Find my own outstanding claim (if I'm the one who pressed Ron and I'm waiting).
+
   const myClaimEntry = Object.entries(pendingRonClaims)
     .map(([loserSeat, claims]) => ({
       loserSeat: Number(loserSeat),

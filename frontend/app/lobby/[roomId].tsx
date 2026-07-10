@@ -129,6 +129,7 @@ export default function RoomScreen() {
 
       {gameIsLive ? (
         <GameDashboard 
+          roomId={roomId}
           mySeat={self?.joinOrder !== undefined ? self.joinOrder + 1 : 1} 
           myName={player.name} 
           playerNamesMap={playerNamesMap}
