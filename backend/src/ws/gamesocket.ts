@@ -1,7 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import { eq } from "drizzle-orm";
 import { db } from "../database/client";
-import { gameState, games, handResults } from "../database/schema";
+import { gameState, games, handResults , rooms} from "../database/schema";
 import type { Mode } from "../logic/scoring";
 import { addConnection, removeConnection, broadcast } from "./connections";
 import { wsActionSchema } from "./schemas";
@@ -20,9 +20,9 @@ export async function gameSocketRoutes(app: FastifyInstance) {
   app.get("/ws", { websocket: true }, (socket, _req) => {
     addConnection(socket);
     app.log.info("Player connected.");
-
-    void syncStateToSocket(socket);
-
+    const url = new URL(_req.url ?? "", `http://${_req.headers.host}`);
+    const roomId = Number(url.searchParams.get("roomId"));
+    void syncStateToSocket(socket, roomId);
     socket.on("message", async (raw: string) => {
       try {
         await handleIncomingAction(app, raw);
@@ -38,7 +38,13 @@ export async function gameSocketRoutes(app: FastifyInstance) {
   });
 }
 
-async function syncStateToSocket(socket: any) {
+async function syncStateToSocket(socket: any, roomId: number) {
+  const room = await db.select().from(rooms).where(eq(rooms.id, roomId)).get();
+  if (!room || room.status === "finished") {
+    socket.close(1008, "Room has already concluded.");
+    return;
+  }
+
   const game = await getActiveGame();
   if (!game) return;
 
