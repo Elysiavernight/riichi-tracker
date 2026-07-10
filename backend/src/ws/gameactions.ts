@@ -238,7 +238,6 @@ function applyConfirmedRon(ctx: ActionContext, loserSeat: number): ActionResult 
     round: toRoundInfo(advanced),
     ledgerRow,
     gameEnded: advanced.gameEnded,
-    // The hand is over — clear every pending claim, not just this loser's.
     pendingRonClaims: {},
   };
 }
