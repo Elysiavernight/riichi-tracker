@@ -24,7 +24,6 @@ export default function RoomScreen() {
   const { roomId: roomIdParam } = useLocalSearchParams<{ roomId: string }>();
   const roomId = Number(roomIdParam);
   const { player } = useAuth();
-
   const [room, setRoom] = useState<Room | null>(null);
   const [members, setMembers] = useState<RoomMember[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -32,7 +31,7 @@ export default function RoomScreen() {
   const [isTogglingReady, setIsTogglingReady] = useState(false);
   const [isStarting, setIsStarting] = useState(false);
   const [startedGameId, setStartedGameId] = useState<number | null>(null);
-
+  
   const refresh = useCallback(async () => {
     try {
       const data = await getRoom(roomId);
@@ -75,7 +74,13 @@ export default function RoomScreen() {
   const isFull = members.length === 4;
   const allReady = isFull && members.every((m) => m.isReady);
   const gameIsLive = room.status === "in_progress" || startedGameId !== null;
-
+  const playerNamesMap: Record<number, string> = {};
+  members.forEach((m) => {
+    if (m.joinOrder !== undefined) {
+      const seatNumber = m.joinOrder + 1;
+      playerNamesMap[seatNumber] = m.name;
+    }
+  });
   async function handleToggleReady() {
     if (!self) return;
     setIsTogglingReady(true);
@@ -110,6 +115,7 @@ export default function RoomScreen() {
         <GameDashboard 
           mySeat={self?.joinOrder !== undefined ? self.joinOrder + 1 : 1} 
           myName={player.name} 
+          playerNamesMap={playerNamesMap}
         />
       ) : (
         <>

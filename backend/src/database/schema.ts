@@ -70,6 +70,11 @@ export const gameState = sqliteTable("game_state", {
     .notNull()
     .default(sql`'[]'`)
     .$type<number[]>(),
+
+  pendingRonClaims: text("pending_ron_claims", { mode: "json" })
+    .notNull()
+    .default(sql`'{}'`)
+    .$type<Record<number, { winnerSeat: number; han: number }[]>>(),
   updatedAt: text("updated_at")
     .notNull()
     .default(sql`(datetime('now'))`),
@@ -87,6 +92,8 @@ export const handResults = sqliteTable("hand_results", {
     enum: ["ron", "tsumo", "draw", "four_riichi_abort"],
   }).notNull(),
   han: integer("han"),
+  winnerHans: text("winner_hans", { mode: "json" }).$type<
+    Record<number, number>>(),
   winners: text("winners", { mode: "json" }).$type<number[]>(),
   loserPlayerId: integer("loser_player_id").references(() => players.id),
   tenpaiPlayers: text("tenpai_players", { mode: "json" }).$type<number[]>(),

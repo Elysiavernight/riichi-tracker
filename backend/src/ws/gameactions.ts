@@ -20,6 +20,12 @@ export interface RoundInfo {
   dealerSeat: number;
 }
 
+/** A single winner's claim against a loser, awaiting the loser's confirmation. */
+export interface RonClaim {
+  winnerSeat: number;
+  han: number;
+}
+
 export interface ActionContext {
   gameId: number;
   mode: Mode;
@@ -28,6 +34,8 @@ export interface ActionContext {
   riichiDeclared: number[];
   riichiPot: number;
   round: RoundInfo;
+  /** Ron claims awaiting confirmation, keyed by the loser's (dealt-in) seat. */
+  pendingRonClaims: Record<number, RonClaim[]>;
 }
 
 export interface ActionResult {
@@ -37,6 +45,7 @@ export interface ActionResult {
   round: RoundInfo;
   ledgerRow: LedgerRow | null;
   gameEnded: boolean;
+  pendingRonClaims: Record<number, RonClaim[]>;
 }
 
 export function applyGameAction(
@@ -46,13 +55,31 @@ export function applyGameAction(
   switch (action.action) {
     case "DECLARE_RIICHI":
       return applyRiichi(ctx, action.seat);
-    case "DECLARE_RON":
-      return applyRon(ctx, action.winnerSeats, action.loserSeat, action.han);
+    case "CLAIM_RON":
+      return applyClaimRon(ctx, action.winnerSeat, action.loserSeat, action.han);
+    case "CANCEL_RON_CLAIM":
+      return applyCancelRonClaim(ctx, action.winnerSeat, action.loserSeat);
+    case "DECLINE_RON_CLAIMS":
+      return applyDeclineRonClaims(ctx, action.loserSeat);
+    case "CONFIRM_RON":
+      return applyConfirmedRon(ctx, action.loserSeat);
     case "DECLARE_TSUMO":
       return applyTsumo(ctx, action.winnerSeat, action.han);
     case "EXHAUSTIVE_DRAW":
       return applyExhaustiveDraw(ctx, action.tenpaiSeats);
   }
+}
+
+function passthrough(ctx: ActionContext): ActionResult {
+  return {
+    scores: ctx.scores,
+    riichiDeclared: ctx.riichiDeclared,
+    riichiPot: ctx.riichiPot,
+    round: ctx.round,
+    ledgerRow: null,
+    gameEnded: false,
+    pendingRonClaims: ctx.pendingRonClaims,
+  };
 }
 
 function applyRiichi(ctx: ActionContext, seat: number): ActionResult {
@@ -64,7 +91,7 @@ function applyRiichi(ctx: ActionContext, seat: number): ActionResult {
   let gameEnded = false;
 
   if (riichiDeclared.includes(seat) || scores[seat] < 1000) {
-    return { scores, riichiDeclared, riichiPot, round, ledgerRow, gameEnded };
+    return { ...passthrough(ctx), scores, riichiDeclared, riichiPot, round };
   }
 
   scores[seat] -= 1000;
@@ -88,29 +115,95 @@ function applyRiichi(ctx: ActionContext, seat: number): ActionResult {
 
     round = toRoundInfo(advanced);
     gameEnded = advanced.gameEnded;
-    return { scores, riichiDeclared: [], riichiPot, round, ledgerRow, gameEnded };
+    return {
+      scores,
+      riichiDeclared: [],
+      riichiPot,
+      round,
+      ledgerRow,
+      gameEnded,
+      // The hand is over — any stray claims against anyone are moot.
+      pendingRonClaims: {},
+    };
   }
 
-  return { scores, riichiDeclared, riichiPot, round, ledgerRow, gameEnded };
+  return { scores, riichiDeclared, riichiPot, round, ledgerRow, gameEnded, pendingRonClaims: ctx.pendingRonClaims };
 }
 
-function applyRon(
+/** A winner registers (or updates) their own claim against whoever dealt in. Nothing is scored yet. */
+function applyClaimRon(
   ctx: ActionContext,
-  winnerSeats: number[],
+  winnerSeat: number,
   loserSeat: number,
   han: number,
 ): ActionResult {
+  if (winnerSeat === loserSeat) {
+    // Can't deal into yourself — ignore malformed claim.
+    return passthrough(ctx);
+  }
+
+  const pendingRonClaims = { ...ctx.pendingRonClaims };
+  const existing = pendingRonClaims[loserSeat] ?? [];
+  // Replace any earlier claim from this winner (e.g. they fixed their han).
+  pendingRonClaims[loserSeat] = [
+    ...existing.filter((c) => c.winnerSeat !== winnerSeat),
+    { winnerSeat, han },
+  ];
+
+  return { ...passthrough(ctx), pendingRonClaims };
+}
+
+/** A winner retracts their own claim before the loser confirms. */
+function applyCancelRonClaim(
+  ctx: ActionContext,
+  winnerSeat: number,
+  loserSeat: number,
+): ActionResult {
+  const pendingRonClaims = { ...ctx.pendingRonClaims };
+  const existing = pendingRonClaims[loserSeat] ?? [];
+  const filtered = existing.filter((c) => c.winnerSeat !== winnerSeat);
+
+  if (filtered.length > 0) {
+    pendingRonClaims[loserSeat] = filtered;
+  } else {
+    delete pendingRonClaims[loserSeat];
+  }
+
+  return { ...passthrough(ctx), pendingRonClaims };
+}
+
+/** The loser rejects everything claimed against them without paying anything. */
+function applyDeclineRonClaims(ctx: ActionContext, loserSeat: number): ActionResult {
+  const pendingRonClaims = { ...ctx.pendingRonClaims };
+  delete pendingRonClaims[loserSeat];
+  return { ...passthrough(ctx), pendingRonClaims };
+}
+
+/**
+ * The loser confirms every pending claim against them. This is the only path
+ * that actually moves points for a ron — a winner claiming can never move
+ * points on their own, which is what prevents a winner from sabotaging the
+ * loser's total.
+ */
+function applyConfirmedRon(ctx: ActionContext, loserSeat: number): ActionResult {
+  const claims = ctx.pendingRonClaims[loserSeat] ?? [];
+  if (claims.length === 0) {
+    return passthrough(ctx);
+  }
+
   const scores = { ...ctx.scores };
   const round = ctx.round;
   const scoreDeltas: Record<number, number> = {};
+  const winnerHans: Record<number, number> = {};
   let totalFromLoser = 0;
-  const anyWinnerIsDealer = winnerSeats.includes(round.dealerSeat);
+  const anyWinnerIsDealer = claims.some((c) => c.winnerSeat === round.dealerSeat);
 
-  winnerSeats.forEach((winnerSeat, i) => {
+  claims.forEach(({ winnerSeat, han }, i) => {
     const isDealer = winnerSeat === round.dealerSeat;
     const payout = getRonPayout(isDealer, han, round.honba);
     scores[winnerSeat] += payout;
     scoreDeltas[ctx.seatPlayers[winnerSeat]] = payout;
+    winnerHans[ctx.seatPlayers[winnerSeat]] = han;
     totalFromLoser += payout;
     if (i === 0) {
       scores[winnerSeat] += ctx.riichiPot * 1000;
@@ -130,8 +223,9 @@ function applyRon(
     roundNumber: round.roundNumber,
     honba: round.honba,
     resultType: "ron",
-    han,
-    winners: winnerSeats.map((s) => ctx.seatPlayers[s]),
+    han: claims[0].han,
+    winnerHans,
+    winners: claims.map((c) => ctx.seatPlayers[c.winnerSeat]),
     loserPlayerId: ctx.seatPlayers[loserSeat],
     scoreDeltas,
     riichiSticksAwarded: sticksAwarded,
@@ -144,6 +238,8 @@ function applyRon(
     round: toRoundInfo(advanced),
     ledgerRow,
     gameEnded: advanced.gameEnded,
+    // The hand is over — clear every pending claim, not just this loser's.
+    pendingRonClaims: {},
   };
 }
 
@@ -195,6 +291,7 @@ function applyTsumo(
     round: toRoundInfo(advanced),
     ledgerRow,
     gameEnded: advanced.gameEnded,
+    pendingRonClaims: {},
   };
 }
 
@@ -233,6 +330,7 @@ function applyExhaustiveDraw(
     round: toRoundInfo(advanced),
     ledgerRow,
     gameEnded: advanced.gameEnded,
+    pendingRonClaims: {},
   };
 }
 
