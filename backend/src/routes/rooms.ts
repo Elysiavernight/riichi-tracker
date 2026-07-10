@@ -3,7 +3,13 @@ import type { ZodTypeProvider } from "fastify-type-provider-zod";
 import { z } from "zod";
 import { eq, and } from "drizzle-orm";
 import { db } from "../database/client";
-import { rooms, roomPlayers, games, gameState, players } from "../database/schema";
+import {
+  rooms,
+  roomPlayers,
+  games,
+  gameState,
+  players,
+} from "../database/schema";
 import { errorSchema, roomIdParamsSchema } from "../database/schemas/common";
 import { broadcast } from "../ws/connections";
 import { STARTING_SCORE } from "../constants";
@@ -72,12 +78,25 @@ export async function roomRoutes(app: FastifyInstance) {
     async (req, reply) => {
       const { roomId } = req.params;
       const { playerId } = req.body;
+      const room = await db
+        .select()
+        .from(rooms)
+        .where(eq(rooms.id, roomId))
+        .get();
 
+      if (!room) {
+        return reply.code(400).send({ error: "Room not found" });
+      }
+
+      if (room.status === "finished") {
+        return reply.code(400).send({ error: "Game has finished" });
+      }
       const existing = await db
         .select()
         .from(roomPlayers)
         .where(eq(roomPlayers.roomId, roomId))
         .all();
+
       if (existing.length >= 4) {
         return reply.code(400).send({ error: "Room is full" });
       }

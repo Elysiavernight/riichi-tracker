@@ -93,8 +93,8 @@ export default function RoomScreen() {
   const playerNamesMap: Record<number, string> = {};
   members.forEach((m) => {
     if (m.joinOrder !== undefined) {
-      const seatNumber = m.joinOrder + 1;
-      playerNamesMap[seatNumber] = m.name;
+      
+      playerNamesMap[m.playerId] = m.name;
     }
   });
   async function handleToggleReady() {
