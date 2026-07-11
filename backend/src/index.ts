@@ -1,4 +1,4 @@
-import { build } from "bun";
+// import { build } from "bun";
 import { buildApp } from "./app";
 import { playerRoutes } from "./routes/players";
 import { roomRoutes } from "./routes/rooms";

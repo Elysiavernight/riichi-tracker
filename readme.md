@@ -25,3 +25,24 @@ Because calculations are handled digitally, **exact point division** is supporte
 * **Dealer Tsumo:** All 3 non-dealers split the target base point value + Honba penalty equally ($1/3$ each).
 * **Non-Dealer Tsumo:** The Dealer pays exactly $1/2$ of the total hand value, while the other two non-dealers split the remaining $1/2$ ($1/4$ each). Honba values are distributed uniformly.
 
+## What's included in V1
+1. Login/Register authentication features
+2. Creating private rooms to play with friends
+3. joining with room ID
+4. East/South games
+5. Points tracking including Yakuman(up to sextuple yakuman)
+
+## what should be expected in the future 
+1. An option for 3 player mahjong(v.1.1.0)
+2. An option to customize the app to your liking(v.2.0.0)
+## Disclaimer
+
+im aware this app maybe not perfect, this app is aimed to be use by me and my other close friends when playing Riichi mahjong to reduce the hurdle of having to setup sticks and tracking placement after the game.
+
+## Tech stack
+This app is built with Expo+React native for the mobile app and fastify for the backend server. both of which are new stack to me.
+
+
+## Installing
+
+To use this app on your mobile phone, navigate to the releases section and download the provided apk.
