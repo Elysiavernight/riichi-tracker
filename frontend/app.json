@@ -1,17 +1,18 @@
 {
   "expo": {
-    "name": "Elysiavernight Riichi Tracker",
-    "slug": "Elysiavernight Riichi Tracker",
+    "name": "Riichi Tracker",
+    "slug": "riichi-tracker",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "Elysiavernight Riichi Tracker",
+    "scheme": "riichitracker",
     "userInterfaceStyle": "automatic",
-    "ios": {
-      "icon": "./assets/expo.icon"
-    },
     "android": {
-      
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/images/icon.png",
+        "backgroundColor": "#0f0f14"
+      },
+      "package": "com.elysiavernight.riichitracker",
       "predictiveBackGestureEnabled": false
     },
     "web": {
@@ -23,9 +24,10 @@
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#208AEF",
-          "image": "./assets/images/splash-icon.png",
-          "imageWidth": 76
+          "backgroundColor": "#0f0f14",
+           "image": "./assets/images/splash.png",
+          "imageWidth": 128
+          
         }
       ],
       "expo-secure-store"
@@ -33,6 +35,12 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "69cfb30f-d719-4975-9132-c0c088dea152"
+      }
     }
   }
 }

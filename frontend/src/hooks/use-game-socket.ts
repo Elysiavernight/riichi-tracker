@@ -40,7 +40,7 @@ export function useGameSocket(roomId: number | null) {
     const ws = new WebSocket(url);
 
     ws.onopen = () => {
-      console.log("📸 Connected to Mahjong Server!");
+      console.log("Connected to Mahjong Server!");
       setIsConnected(true);
     };
 
