@@ -8,6 +8,7 @@ the score, actions like Rons, Tsumo, Riichi will all be tracked via a mobile app
 
 
 ### 1. Ron Payout Base Table
+This app doesn't account Fu to the calculation. however in the future once me and my team have learn how to calculate fu, it will be implemented accordingly. this app is targeted to those who is still new to riichi mahjong with basic Yaku/Han knowledge
 | Han Count | Non-Dealer Pay (From Loser) | Dealer Pay (From Loser) |
 | :--- | :--- | :--- |
 | **1 Han** | 1,000 pts | 2,000 pts |
