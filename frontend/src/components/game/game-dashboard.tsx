@@ -11,7 +11,7 @@ import { colors, radii, spacing } from "../../theme/colors";
 import { useGameSocket } from "../../hooks/use-game-socket";
 
 interface GameDashboardProps {
-  roomId : number| string;
+  roomId: number | string;
   mySeat: number;
   myName: string;
   playerNamesMap: Record<number, string>;
@@ -25,12 +25,16 @@ export function GameDashboard({
 }: GameDashboardProps) {
   const { gameState, isConnected, sendAction } = useGameSocket(Number(roomId));
 
+  const [activeModal, setActiveModal] = React.useState<
+    "ron" | "tsumo" | "draw" | null
+  >(null);
 
-  const [activeModal, setActiveModal] = React.useState<"ron" | "tsumo" | "draw" | null>(null);
- 
   const [selectedLoser, setSelectedLoser] = React.useState<number | null>(null);
   const [selectedHan, setSelectedHan] = React.useState<number>(1);
-  const [tenpaiSeats, setTenpaiSeats] = React.useState<Record<number, boolean>>({ 1: false, 2: false, 3: false, 4: false });
+  const [isYakuman, setIsYakuman] = React.useState<boolean>(false);
+  const [tenpaiSeats, setTenpaiSeats] = React.useState<Record<number, boolean>>(
+    { 1: false, 2: false, 3: false, 4: false },
+  );
 
   const ALL_SEAT_NUMBERS = [1, 2, 3, 4];
 
@@ -55,9 +59,10 @@ export function GameDashboard({
     seatPlayers,
   } = gameState;
 
-
-  const pendingRonClaims: Record<number, { winnerSeat: number; han: number }[]> =
-    (gameState as any).pendingRonClaims ?? {};
+  const pendingRonClaims: Record<
+    number,
+    { winnerSeat: number; han: number }[]
+  > = (gameState as any).pendingRonClaims ?? {};
   const claimsAgainstMe = pendingRonClaims[mySeat] ?? [];
 
   const myClaimEntry = Object.entries(pendingRonClaims)
@@ -71,6 +76,7 @@ export function GameDashboard({
     setActiveModal(null);
     setSelectedLoser(null);
     setSelectedHan(1);
+    setIsYakuman(false);
     setTenpaiSeats({ 1: false, 2: false, 3: false, 4: false });
   };
 
@@ -79,11 +85,18 @@ export function GameDashboard({
   };
 
   const adjustHan = (delta: number) => {
-    setSelectedHan((prev) => Math.min(13, Math.max(1, prev + delta)));
+    setSelectedHan((prev) => {
+      if (isYakuman) {
+        return Math.min(6, Math.max(1, prev + delta));
+      }
+      return Math.min(13, Math.max(1, prev + delta));
+    });
   };
-
+  const toggleYakumanMode = () => {
+    setIsYakuman((prev) => !prev);
+    setSelectedHan(1); // Reset counter to 1
+  };
   const openRonModal = () => {
-    // Pre-fill from an existing claim, if I'm editing one.
     if (myClaimEntry) {
       setSelectedLoser(myClaimEntry.loserSeat);
       setSelectedHan(myClaimEntry.claim!.han);
@@ -93,11 +106,12 @@ export function GameDashboard({
 
   const claimRon = () => {
     if (selectedLoser === null) return;
+    const finalHan = isYakuman ? selectedHan * 13 : selectedHan;
     sendAction({
       action: "CLAIM_RON",
       winnerSeat: mySeat,
       loserSeat: selectedLoser,
-      han: selectedHan,
+      han: finalHan,
     });
     closeModal();
   };
@@ -120,10 +134,11 @@ export function GameDashboard({
   };
 
   const confirmTsumo = () => {
+    const finalHan = isYakuman ? selectedHan * 13 : selectedHan;
     sendAction({
       action: "DECLARE_TSUMO",
       winnerSeat: mySeat,
-      han: selectedHan,
+      han: finalHan,
     });
     closeModal();
   };
@@ -219,7 +234,6 @@ export function GameDashboard({
         </View>
       </View>
 
-      
       {claimsAgainstMe.length > 0 && (
         <View style={styles.claimBanner}>
           <Text style={styles.claimBannerTitle}>Ron called on you</Text>
@@ -229,22 +243,28 @@ export function GameDashboard({
             </Text>
           ))}
           <View style={styles.modalActions}>
-            <Pressable style={styles.cancelBtn} onPress={declineClaimsAgainstMe}>
+            <Pressable
+              style={styles.cancelBtn}
+              onPress={declineClaimsAgainstMe}
+            >
               <Text style={styles.cancelBtnText}>Decline</Text>
             </Pressable>
-            <Pressable style={styles.confirmBtn} onPress={confirmClaimsAgainstMe}>
+            <Pressable
+              style={styles.confirmBtn}
+              onPress={confirmClaimsAgainstMe}
+            >
               <Text style={styles.confirmBtnText}>Confirm & Pay</Text>
             </Pressable>
           </View>
         </View>
       )}
 
-     
       {myClaimEntry && (
         <View style={styles.claimBanner}>
           <Text style={styles.claimBannerTitle}>Waiting for confirmation</Text>
           <Text style={styles.claimBannerRow}>
-            {myClaimEntry.claim!.han} han vs {getPlayerNameBySeat(myClaimEntry.loserSeat)}
+            {myClaimEntry.claim!.han} han vs{" "}
+            {getPlayerNameBySeat(myClaimEntry.loserSeat)}
           </Text>
           <View style={styles.modalActions}>
             <Pressable style={styles.cancelBtn} onPress={cancelMyClaim}>
@@ -296,7 +316,7 @@ export function GameDashboard({
         </Pressable>
       )}
 
-      {/* RON MODAL — pressing Ron means *you* won; you're only telling us who dealt in */}
+      {/* RON MODAL */}
       <Modal
         visible={activeModal === "ron"}
         transparent
@@ -307,39 +327,87 @@ export function GameDashboard({
           <View style={styles.modalCard}>
             <Text style={styles.modalTitle}>Ron</Text>
             <Text style={styles.modalSubtitle}>
-              You're declaring your own win. This just tells the table who
-              dealt into you — they'll confirm before any points move.
+              You're declaring your own win. This just tells the table who dealt
+              into you — they'll confirm before any points move.
             </Text>
 
             <Text style={styles.sectionLabel}>Who dealt in?</Text>
             <View style={styles.chipRow}>
-              {ALL_SEAT_NUMBERS.filter((seat) => seat !== mySeat).map((seat) => (
-                <Pressable
-                  key={seat}
-                  style={[
-                    styles.seatChip,
-                    selectedLoser === seat && styles.loserChipSelected,
-                  ]}
-                  onPress={() => setSelectedLoser(seat)}
-                >
-                  <Text
+              {ALL_SEAT_NUMBERS.filter((seat) => seat !== mySeat).map(
+                (seat) => (
+                  <Pressable
+                    key={seat}
                     style={[
-                      styles.seatChipText,
-                      selectedLoser === seat && styles.seatChipTextSelected,
+                      styles.seatChip,
+                      selectedLoser === seat && styles.loserChipSelected,
                     ]}
+                    onPress={() => setSelectedLoser(seat)}
                   >
-                    {getPlayerNameBySeat(seat)}
-                  </Text>
-                </Pressable>
-              ))}
+                    <Text
+                      style={[
+                        styles.seatChipText,
+                        selectedLoser === seat && styles.seatChipTextSelected,
+                      ]}
+                    >
+                      {getPlayerNameBySeat(seat)}
+                    </Text>
+                  </Pressable>
+                ),
+              )}
             </View>
 
-            <Text style={styles.sectionLabel}>Your Han</Text>
+            {/*Yakuman*/}
+            <View
+              style={{
+                flexDirection: "row",
+                justifyContent: "space-between",
+                alignItems: "center",
+                marginTop: spacing.md,
+                marginBottom: spacing.sm,
+              }}
+            >
+              <Text style={styles.sectionLabel}>
+                {isYakuman ? "🏆 Yakuman Count" : "🔢 Your Han"}
+              </Text>
+              <Pressable
+                style={[
+                  styles.indicatorPill,
+                  {
+                    borderColor: isYakuman
+                      ? colors.pinkPrimary
+                      : colors.textSecondary,
+                    backgroundColor: isYakuman
+                      ? "rgba(244, 114, 182, 0.1)"
+                      : "transparent",
+                  },
+                ]}
+                onPress={toggleYakumanMode}
+              >
+                <Text
+                  style={[
+                    styles.indicatorText,
+                    {
+                      color: isYakuman
+                        ? colors.pinkPrimary
+                        : colors.textSecondary,
+                    },
+                  ]}
+                >
+                  {isYakuman ? "Switch to Han" : "Switch to Yakuman"}
+                </Text>
+              </Pressable>
+            </View>
             <View style={styles.stepperRow}>
-              <Pressable style={styles.stepperBtn} onPress={() => adjustHan(-1)}>
+              <Pressable
+                style={styles.stepperBtn}
+                onPress={() => adjustHan(-1)}
+              >
                 <Text style={styles.stepperBtnText}>-</Text>
               </Pressable>
-              <Text style={styles.stepperValue}>{selectedHan}</Text>
+              <Text style={styles.stepperValue}>
+                {selectedHan}
+                {isYakuman && "x"}
+              </Text>
               <Pressable style={styles.stepperBtn} onPress={() => adjustHan(1)}>
                 <Text style={styles.stepperBtnText}>+</Text>
               </Pressable>
@@ -364,7 +432,7 @@ export function GameDashboard({
         </View>
       </Modal>
 
-      {/* TSUMO MODAL — pressing Tsumo means *you* self-drew; just say your han */}
+      {/* TSUMO MODAL*/}
       <Modal
         visible={activeModal === "tsumo"}
         transparent
@@ -374,14 +442,62 @@ export function GameDashboard({
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
             <Text style={styles.modalTitle}>Tsumo</Text>
-            <Text style={styles.modalSubtitle}>Self-draw win. What's your han?</Text>
+            <Text style={styles.modalSubtitle}>
+              Self-draw win. What's your han?
+            </Text>
 
-            <Text style={styles.sectionLabel}>Your Han</Text>
+            {/*Yakuman*/}
+            <View
+              style={{
+                flexDirection: "row",
+                justifyContent: "space-between",
+                alignItems: "center",
+                marginTop: spacing.md,
+                marginBottom: spacing.sm,
+              }}
+            >
+              <Text style={styles.sectionLabel}>
+                {isYakuman ? "🏆 Yakuman Count" : "🔢 Your Han"}
+              </Text>
+              <Pressable
+                style={[
+                  styles.indicatorPill,
+                  {
+                    borderColor: isYakuman
+                      ? colors.pinkPrimary
+                      : colors.textSecondary,
+                    backgroundColor: isYakuman
+                      ? "rgba(244, 114, 182, 0.1)"
+                      : "transparent",
+                  },
+                ]}
+                onPress={toggleYakumanMode}
+              >
+                <Text
+                  style={[
+                    styles.indicatorText,
+                    {
+                      color: isYakuman
+                        ? colors.pinkPrimary
+                        : colors.textSecondary,
+                    },
+                  ]}
+                >
+                  {isYakuman ? "Switch to Han" : "Switch to Yakuman"}
+                </Text>
+              </Pressable>
+            </View>
             <View style={styles.stepperRow}>
-              <Pressable style={styles.stepperBtn} onPress={() => adjustHan(-1)}>
+              <Pressable
+                style={styles.stepperBtn}
+                onPress={() => adjustHan(-1)}
+              >
                 <Text style={styles.stepperBtnText}>-</Text>
               </Pressable>
-              <Text style={styles.stepperValue}>{selectedHan}</Text>
+              <Text style={styles.stepperValue}>
+                {selectedHan}
+                {isYakuman && "x"}
+              </Text>
               <Pressable style={styles.stepperBtn} onPress={() => adjustHan(1)}>
                 <Text style={styles.stepperBtnText}>+</Text>
               </Pressable>
@@ -678,7 +794,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  stepperBtnText: { color: colors.textPrimary, fontSize: 20, fontWeight: "900" },
+  stepperBtnText: {
+    color: colors.textPrimary,
+    fontSize: 20,
+    fontWeight: "900",
+  },
   stepperValue: {
     color: colors.pinkPrimary,
     fontSize: 24,
